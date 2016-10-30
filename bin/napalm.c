@@ -7,15 +7,13 @@
 #include<pthread.h>
 #include <assert.h>
 
-//#define WWW_LOCATION  "/home/icreatemac/cdev/www/"
-
 int main_sock;
 char cwd[1024];
 
 void *_handler(void *);
 void bye(void)
 {
-  close(main_sock);
+  close(main_sock); //Not sure if it works...
 }
 int main(int argc , char *argv[])
 {
@@ -50,8 +48,6 @@ int main(int argc , char *argv[])
                     }
             }
     }
-
-
     main_sock = socket_desc;
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
     if (socket_desc == -1)

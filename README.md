@@ -1,6 +1,6 @@
 # Napalm
 
-Napalm is a lightweight and easy to use webserver.
+Napalm is a lightweight and easy to use webserver with PHP support.
 
 ## Installation
 

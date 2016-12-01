@@ -21,16 +21,6 @@ Napalm is a lightweight and easy to use webserver with PHP support.
  ```
  $ napalm -o
  ```
- 
- Custom port:
- ```
- $ napalm -p 1337
- ```
- 
- Custom host:
- ```
- $ napalm -h foo.bar.com
- ```
 
 ## Contributing
 

@@ -8,19 +8,17 @@
 #include <assert.h>
 
 int main_sock;
+int _rewrite = 0;
+int _srvPort = 8080;
+char *_request_heaader;
 char cwd[1024];
 
 void *_handler(void *);
-void bye(void)
-{
-  close(main_sock); //Not sure if it works...
-}
 int main(int argc , char *argv[])
 {
     int socket_desc , client_sock , c , *new_sock;
     struct sockaddr_in server , client;
     int _online = 0;
-    atexit (bye);
 
     if (getcwd(cwd, sizeof(cwd)) != NULL)
     {
@@ -45,6 +43,9 @@ int main(int argc , char *argv[])
                             case 'o':
                                     _online = 1;
                                     break;
+                            case 'r':
+                                    _rewrite = 1;
+                                    break;
                     }
             }
     }
@@ -64,7 +65,7 @@ int main(int argc , char *argv[])
     {
       server.sin_addr.s_addr = INADDR_ANY;
     }
-    server.sin_port = htons( 8080 );
+    server.sin_port = htons(_srvPort);
 
     if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
     {
@@ -95,6 +96,7 @@ int main(int argc , char *argv[])
         perror("accept failed");
         return 1;
     }
+    printf("Exiting top");
     return 0;
 }
 char* concat(const char *s1, const char *s2)
@@ -160,10 +162,18 @@ void *_handler(void *socket_desc)
         f_file = memmove(_reqFile, _reqFile+1, strlen(_reqFile));
         if(f_file[strlen(f_file)-1] == '/')
         {
-          if( access( concat(cwd,concat(f_file, "index.php")), F_OK ) != -1 ) {
-              f_file = concat(f_file, "index.php");
-          } else {
-              f_file = concat(f_file, "index.html");
+          if(_rewrite == 1)
+          {
+            f_file = "index.php";
+            printf("Rewriting Url");
+          }
+          else
+          {
+            if( access( concat(cwd,concat(f_file, "index.php")), F_OK ) != -1 ) {
+                f_file = concat(f_file, "index.php");
+            } else {
+                f_file = concat(f_file, "index.html");
+            }
           }
         }
       }
@@ -207,22 +217,38 @@ void *_handler(void *socket_desc)
         memcpy(_phpSess + 42 + 32 + 12 + _lenF, "\");'", 5);
         fp = popen(_phpSess, "r");
 
+        /*
+        size_t _reqLength = strlen("/usr/bin/php -r '$_SERVER[\"REQUEST_URI\"] = \"\"; $_COOKIE[\"PHPSESSID\"] = \"") + strlen(_reqCookie) + strlen("\"; require(\"\");'") +strlen(f_file) +strlen(_reqFile) + 1;
+        char *_phpSess;
+        _phpSess = malloc(_reqLength);
+        memcpy(_phpSess, "/usr/bin/php -r '$_SERVER[\"REQUEST_URI\"] = \"", strlen("/usr/bin/php -r '$_SERVER[\"REQUEST_URI\"] = \""));
+        memcpy(_phpSess + 44, _reqFile, strlen(_reqFile));
+        memcpy(_phpSess + 44 + strlen(_reqFile), "\"; ", 3);
+        memcpy(_phpSess + 44 + strlen(_reqFile) + 3, "$_COOKIE[\"PHPSESSID\"] = \"", strlen("$_COOKIE[\"PHPSESSID\"] = \""));
+        memcpy(_phpSess + strlen("$_COOKIE[\"PHPSESSID\"] = \""), _reqCookie, 32);
+        memcpy(_phpSess + 44 + strlen(_reqFile) + 3 + strlen("$_COOKIE[\"PHPSESSID\"] = \"") + 32, "\"; require(\"", 12);
+        memcpy(_phpSess + 44 + strlen(_reqFile) + 3 + strlen("$_COOKIE[\"PHPSESSID\"] = \"") + 32 +12, f_file, _lenF);
+        memcpy(_phpSess + 44 + strlen(_reqFile) + 3 + strlen("$_COOKIE[\"PHPSESSID\"] = \"") + 32 + 12 + _lenF, "\");'", 5);
+        printf("%s\n", _phpSess);
+        */
+
         if (fp == NULL) {
           printf("Failed to run PHP\n" );
         }
         else{
-          write(sock, "HTTP/1.1 200 OK\n", 16);
+          send(sock, "HTTP/1.1 200 OK\n", 16, MSG_NOSIGNAL);
+          send(sock, "Server: Napalm/0.0.1\n", 21, MSG_NOSIGNAL);
           if(setCookie == 1)
           {
             char _sessID[33];
             rand_str(_sessID, 32);
             char *_cookieSet = concat("Set-Cookie: phpsessid=", _sessID);
-            write(sock, _cookieSet, strlen(_cookieSet));
-            write(sock, "\n", 1);
+            send(sock, _cookieSet, strlen(_cookieSet), MSG_NOSIGNAL);
+            send(sock, "\n", 1, MSG_NOSIGNAL);
           }
-          write(sock, "Content-Type: text/html\n\n", 25);
+          send(sock, "Content-Type: text/html\n\n", 25, MSG_NOSIGNAL);
           while (fgets(path, sizeof(path)-1, fp) != NULL) {
-            write(sock, path, strlen(path));
+            send(sock, path, strlen(path), MSG_NOSIGNAL);
           }
         }
         pclose(fp);
@@ -234,31 +260,45 @@ void *_handler(void *socket_desc)
         file = fopen(f_file, "r");
 
         if (file) {
-          write(sock, "HTTP/1.1 200 OK\n", 16);
-          if(strstr(f_file, ".css") != NULL)
-          {
-            write(sock, "Content-Type: text/css\n\n", 25);
+          send(sock, "HTTP/1.1 200 OK\n", 16, MSG_NOSIGNAL);
+          if(strstr(f_file, ".css") != NULL){
+            send(sock, "Content-Type: text/css\n\n", strlen("Content-Type: text/css\n\n"), MSG_NOSIGNAL);
           }
-          else if(strstr(f_file, ".js") != NULL)
-          {
-            write(sock, "Content-Type: text/javascript\n\n", 25);
+          else if(strstr(f_file, ".js") != NULL){
+            send(sock, "Content-Type: text/javascript\n\n", strlen("Content-Type: text/javascript\n\n"), MSG_NOSIGNAL);
           }
-          else
-          {
-            write(sock, "Content-Type: text/html\n\n", 25);
+          else if(strstr(f_file, ".svg") != NULL){
+            send(sock, "Content-Type: image/svg+xml\n\n", strlen("Content-Type: image/svg+xml\n\n"), MSG_NOSIGNAL);
           }
-
+          else if(strstr(f_file, ".png") != NULL){
+            send(sock, "Content-Type: image/png\n\n", strlen("Content-Type: image/png\n\n"), MSG_NOSIGNAL);
+          }
+          else if(strstr(f_file, ".jpg") != NULL){
+            send(sock, "Content-Type: image/jpeg\n\n", strlen("Content-Type: image/jpeg\n\n"), MSG_NOSIGNAL);
+          }
+          else if(strstr(f_file, ".mp4") != NULL){
+            send(sock, "Content-Type: video/mp4\n\n", strlen("Content-Type: video/mp4\n\n"), MSG_NOSIGNAL);
+          }
+          else if(strstr(f_file, ".ogg") != NULL){
+            send(sock, "Content-Type: video/ogg\n\n", strlen("Content-Type: video/ogg\n\n"), MSG_NOSIGNAL);
+          }
+          else if(strstr(f_file, ".webm") != NULL){
+            send(sock, "Content-Type: video/webm\n\n", strlen("Content-Type: video/webm\n\n"), MSG_NOSIGNAL);
+          }
+          else{
+            send(sock, "Content-Type: text/html\n\n", 25, MSG_NOSIGNAL);
+          }
           while ((c = getc(file)) != EOF)
           {
               t[0] = c;
-              write(sock,t,1);
+              send(sock, t, 1, MSG_NOSIGNAL);
           }
           fclose(file);
-          write(sock,"\n",1);
+          send(sock, "\n", 1, MSG_NOSIGNAL);
           printf("%s %s OK 200\n", _reqType, _reqFile);
         }
         else{
-          write(sock, "404\n", 4);
+          send(sock, "HTTP/1.1 404 Not Found\n\n", strlen("HTTP/1.1 404 Not Found\n\n"), MSG_NOSIGNAL);
           printf("Request of type: %s for file: %s ERROR 404\n", _reqType, _reqFile);
         }
       }
@@ -275,7 +315,7 @@ void *_handler(void *socket_desc)
     else if(read_size == -1)
     {
       close(sock);
-        //perror("recv failed");
+      //perror("recv failed");
     }
     return 0;
 }

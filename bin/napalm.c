@@ -48,6 +48,13 @@ int main(int argc , char *argv[])
                                     break;
                     }
             }
+            else{
+              _srvPort = atoi(argv[0]);
+              if(_srvPort == 0){
+                puts("Wrong server port specified");
+                exit(0);
+              }
+            }
     }
     main_sock = socket_desc;
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
@@ -74,10 +81,11 @@ int main(int argc , char *argv[])
     }
 
     listen(socket_desc , 3);
+    puts(" ");
     if(_online == 1)
-      puts("Server started in Online mode");
+      printf("Server started in Online mode on port: %d\n", _srvPort);
     else
-      puts("Server started in Local mode");
+      printf("Server started in Local mode on port: %d\n", _srvPort);
     c = sizeof(struct sockaddr_in);
     while( (client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) )
     {
@@ -217,21 +225,6 @@ void *_handler(void *socket_desc)
         memcpy(_phpSess + 42 + 32 + 12 + _lenF, "\");'", 5);
         fp = popen(_phpSess, "r");
 
-        /*
-        size_t _reqLength = strlen("/usr/bin/php -r '$_SERVER[\"REQUEST_URI\"] = \"\"; $_COOKIE[\"PHPSESSID\"] = \"") + strlen(_reqCookie) + strlen("\"; require(\"\");'") +strlen(f_file) +strlen(_reqFile) + 1;
-        char *_phpSess;
-        _phpSess = malloc(_reqLength);
-        memcpy(_phpSess, "/usr/bin/php -r '$_SERVER[\"REQUEST_URI\"] = \"", strlen("/usr/bin/php -r '$_SERVER[\"REQUEST_URI\"] = \""));
-        memcpy(_phpSess + 44, _reqFile, strlen(_reqFile));
-        memcpy(_phpSess + 44 + strlen(_reqFile), "\"; ", 3);
-        memcpy(_phpSess + 44 + strlen(_reqFile) + 3, "$_COOKIE[\"PHPSESSID\"] = \"", strlen("$_COOKIE[\"PHPSESSID\"] = \""));
-        memcpy(_phpSess + strlen("$_COOKIE[\"PHPSESSID\"] = \""), _reqCookie, 32);
-        memcpy(_phpSess + 44 + strlen(_reqFile) + 3 + strlen("$_COOKIE[\"PHPSESSID\"] = \"") + 32, "\"; require(\"", 12);
-        memcpy(_phpSess + 44 + strlen(_reqFile) + 3 + strlen("$_COOKIE[\"PHPSESSID\"] = \"") + 32 +12, f_file, _lenF);
-        memcpy(_phpSess + 44 + strlen(_reqFile) + 3 + strlen("$_COOKIE[\"PHPSESSID\"] = \"") + 32 + 12 + _lenF, "\");'", 5);
-        printf("%s\n", _phpSess);
-        */
-
         if (fp == NULL) {
           printf("Failed to run PHP\n" );
         }
@@ -261,6 +254,7 @@ void *_handler(void *socket_desc)
 
         if (file) {
           send(sock, "HTTP/1.1 200 OK\n", 16, MSG_NOSIGNAL);
+          send(sock, "Server: Napalm/0.0.1\n", 21, MSG_NOSIGNAL);
           if(strstr(f_file, ".css") != NULL){
             send(sock, "Content-Type: text/css\n\n", strlen("Content-Type: text/css\n\n"), MSG_NOSIGNAL);
           }
@@ -288,7 +282,7 @@ void *_handler(void *socket_desc)
           else{
             send(sock, "Content-Type: text/html\n\n", 25, MSG_NOSIGNAL);
           }
-          while ((c = getc(file)) != EOF)
+          while ((c = getc(file)) != EOF) //To Do: Use a buffer
           {
               t[0] = c;
               send(sock, t, 1, MSG_NOSIGNAL);
@@ -315,7 +309,6 @@ void *_handler(void *socket_desc)
     else if(read_size == -1)
     {
       close(sock);
-      //perror("recv failed");
     }
     return 0;
 }

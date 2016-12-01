@@ -21,7 +21,12 @@ Napalm is a lightweight and easy to use webserver with PHP support.
  ```
  $ napalm -o
  ```
-
+ 
+ Specify Port:
+ ```
+ $ napalm -o 80
+ ```
+ 
 ## Contributing
 
 1. Fork it!

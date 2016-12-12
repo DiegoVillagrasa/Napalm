@@ -133,16 +133,21 @@ void *_handler(void *socket_desc)
 {
     int sock = *(int*)socket_desc;
     int read_size;
-    char *message , buffer[1048];
+    char *message , buffer[2048];
 
-    while( (read_size = recv(sock , buffer , 1048 , 0)) > 0 )
+    while( (read_size = recv(sock , buffer , 2048 , 0)) > 0 )
     {
       char *_req;
       char *_reqType;
       char *_reqFile;
-      char _bfr[1048];
+      char *_reqContentLength;
+      char *_reqContentType;
+      char *_reqHost;
+      char *_reqOrigin;
+      char *_reqPost;
+      char _bfr[2048];
       strcpy(_bfr, buffer);
-
+      printf("%s\n", buffer);
       int _reqPointer = 0;
       _req = strtok(buffer, " ");
       int i;
@@ -192,59 +197,133 @@ void *_handler(void *socket_desc)
         char *_reqCookie;
         char *_prt;
         char *token = NULL;
-        token = strtok(_bfr, "\n");
+        char *_bfr1;
+        _bfr1 = malloc(strlen(_bfr)+1);
+        strcpy(_bfr1, _bfr);
+        token = strtok(_bfr1, "\n");
         while (token) {
-            //printf("Current token: %s.\n", token);
-            if(strstr(token, "Cookie: phpsessid=")!= NULL)
+            if(strstr(token, "Cookie:")!= NULL)
             {
               char *tempo;
               tempo = malloc(strlen(token)+1);
               strcpy(tempo,token);
-              removeSubstring(tempo, "Cookie: phpsessid=");
+              removeSubstring(tempo, "Cookie: ");
               _reqCookie = malloc(strlen(tempo)+1);
               strcpy(_reqCookie,tempo);
               setCookie = 0;
             }
             token = strtok(NULL, "\n");
         }
+
+        char *token2 = NULL;
+        char *_bfr2;
+        _bfr2 = malloc(strlen(_bfr)+1);
+        strcpy(_bfr2, _bfr);
+        token2 = strtok(_bfr2, "\n");
+        while (token2) {
+            if(strstr(token2, "Host:")!= NULL)
+            {
+              char *tempo2;
+              tempo2 = malloc(strlen(token2)+1);
+              strcpy(tempo2,token2);
+              removeSubstring(tempo2, "Host: ");
+              _reqHost = malloc(strlen(tempo2)+1);
+              strcpy(_reqHost,tempo2);
+            }
+            token2 = strtok(NULL, "\n");
+        }
+
+        char *token3 = NULL;
+        char *_bfr3;
+        _bfr3 = malloc(strlen(_bfr)+1);
+        strcpy(_bfr3, _bfr);
+        token3 = strtok(_bfr3, "\n");
+        while (token3) {
+            if(strstr(token3, "Content-Length:")!= NULL)
+            {
+              char *tempo3;
+              tempo3 = malloc(strlen(token3)+1);
+              strcpy(tempo3,token3);
+              removeSubstring(tempo3, "Content-Length: ");
+              _reqContentLength = malloc(strlen(tempo3)+1);
+              strcpy(_reqContentLength,tempo3);
+            }
+            token3 = strtok(NULL, "\n");
+        }
+
+
+
+        char *token4 = NULL;
+        char *_bfr4;
+        _bfr4 = malloc(strlen(_bfr)+1);
+        strcpy(_bfr4, _bfr);
+        token4 = strtok(_bfr4, "\n");
+        while (token4) {
+            if(strstr(token4, "Content-Type:")!= NULL)
+            {
+              char *tempo4;
+              tempo4 = malloc(strlen(token4)+1);
+              strcpy(tempo4,token4);
+              removeSubstring(tempo4, "Content-Type: ");
+              _reqContentType = malloc(strlen(tempo4)+1);
+              strcpy(_reqContentType,tempo4);
+            }
+            token4 = strtok(NULL, "\n");
+        }
+        if(strcmp(_reqType,"POST") == 0){
+          char *token5 = NULL;
+          char *_bfr5;
+          _bfr5 = malloc(strlen(_bfr)+1);
+          strcpy(_bfr5, _bfr);
+          token5 = strtok(_bfr5, "\n");
+          while (token5) {
+              if(strcmp(token5, "\r") == 0)
+              {
+                token5 = strtok(NULL, "\n");
+                char *tempo5;
+                tempo5 = malloc(strlen(token5)+1);
+                strcpy(tempo5,token5);
+                _reqPost = malloc(strlen(tempo5)+1);
+                strcpy(_reqPost,tempo5);
+                printf("%s\n", _reqPost);
+              }
+              token5 = strtok(NULL, "\n");
+          }
+
+        }
+
         FILE *fp;
         char path[8928];
-        if(setCookie == 1)
-        {
-          _reqCookie = malloc(33);
-          rand_str(_reqCookie, 32);
+        printf("Begin env\n");
+        setenv("GATEWAY_INTERFACE","CGI/1.1",1);
+        setenv("SCRIPT_FILENAME",f_file,1);
+        setenv("HTTP_HOST",_reqHost,1);
+        setenv("CONTENT_TYPE",_reqContentType,1);
+        setenv("HTTP_COOKIE",_reqCookie,1);
+        //setenv("QUERY_STRING","name=tt",1);
+        setenv("REQUEST_METHOD",_reqType,1);
+        setenv("CONTENT_LENGTH",_reqContentLength,1);
+        setenv("REDIRECT_STATUS","200",1);
+        if(strcmp(_reqType,"POST") == 0){
+          setenv("POST_PHP",_reqPost,1);
         }
-        size_t _lenF = strlen(f_file);
-        size_t _reqLength = strlen("/usr/bin/php -r '$_COOKIE[\"PHPSESSID\"] = \"") + strlen(_reqCookie) + strlen("\"; require(\"\");'") +strlen(f_file) + 1;
-        char *_phpSess;
-        _phpSess = malloc(_reqLength);
-        memcpy(_phpSess, "/usr/bin/php -r '$_COOKIE[\"PHPSESSID\"] = \"", strlen("/usr/bin/php -r '$_COOKIE[\"PHPSESSID\"] = \""));
-        memcpy(_phpSess + strlen("/usr/bin/php -r '$_COOKIE[\"PHPSESSID\"] = \""), _reqCookie, 32);
-        memcpy(_phpSess + 42 + 32, "\"; require(\"", 12);
-        memcpy(_phpSess + 42 + 32 +12, f_file, _lenF);
-        memcpy(_phpSess + 42 + 32 + 12 + _lenF, "\");'", 5);
-        fp = popen(_phpSess, "r");
+        printf("End env\n");
+        FILE *fo;
+        char exec_bfr[1024];
 
-        if (fp == NULL) {
+        fo = popen("echo '$POST_PHP' | /usr/bin/php-cgi", "r");
+        printf("Open\n");
+        if (fo == NULL) {
           printf("Failed to run PHP\n" );
         }
         else{
           send(sock, "HTTP/1.1 200 OK\n", 16, MSG_NOSIGNAL);
           send(sock, "Server: Napalm/0.0.1\n", 21, MSG_NOSIGNAL);
-          if(setCookie == 1)
-          {
-            char _sessID[33];
-            rand_str(_sessID, 32);
-            char *_cookieSet = concat("Set-Cookie: phpsessid=", _sessID);
-            send(sock, _cookieSet, strlen(_cookieSet), MSG_NOSIGNAL);
-            send(sock, "\n", 1, MSG_NOSIGNAL);
-          }
-          send(sock, "Content-Type: text/html\n\n", 25, MSG_NOSIGNAL);
-          while (fgets(path, sizeof(path)-1, fp) != NULL) {
+          while (fgets(path, sizeof(path)-1, fo) != NULL) {
             send(sock, path, strlen(path), MSG_NOSIGNAL);
           }
         }
-        pclose(fp);
+        pclose(fo);
       }
       else{
         int c;

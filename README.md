@@ -1,4 +1,5 @@
 # Napalm
+![alt tag](https://travis-ci.org/DiegoVillagrasa/Napalm.svg?branch=master)
 
 Napalm is a lightweight and easy to use webserver with PHP support.
 
